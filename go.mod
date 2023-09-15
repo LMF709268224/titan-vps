@@ -10,6 +10,7 @@ require (
 	github.com/alibabacloud-go/ecs-20140526/v3 v3.0.8
 	github.com/alibabacloud-go/tea v1.2.1
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.4
+	github.com/alibabacloud-go/vpc-20160428/v5 v5.0.1
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fatih/color v1.15.0
 	github.com/filecoin-project/go-address v1.1.0

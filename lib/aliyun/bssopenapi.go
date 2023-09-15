@@ -6,12 +6,11 @@ import (
 	"github.com/LMF709268224/titan-vps/api/types"
 	bssopenapi20171214 "github.com/alibabacloud-go/bssopenapi-20171214/v3/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
-	util "github.com/alibabacloud-go/tea-utils/v2/service"
 	"github.com/alibabacloud-go/tea/tea"
 )
 
-// newBssopen /**
-func newBssopen(keyID, keySecret string) (_result *bssopenapi20171214.Client, _err error) {
+// newBssopenClient /**
+func newBssopenClient(keyID, keySecret string) (_result *bssopenapi20171214.Client, _err error) {
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(keyID),
 		AccessKeySecret: tea.String(keySecret),
@@ -27,7 +26,7 @@ func newBssopen(keyID, keySecret string) (_result *bssopenapi20171214.Client, _e
 func DescribeInstanceBill(keyID, keySecret string) (*types.CreateInstanceResponse, error) {
 	var out *types.CreateInstanceResponse
 
-	client, err := newBssopen(keyID, keySecret)
+	client, err := newBssopenClient(keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -36,7 +35,6 @@ func DescribeInstanceBill(keyID, keySecret string) (*types.CreateInstanceRespons
 		BillingCycle: tea.String("2023-08"),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -44,7 +42,7 @@ func DescribeInstanceBill(keyID, keySecret string) (*types.CreateInstanceRespons
 			}
 		}()
 
-		result, err := client.DescribeInstanceBillWithOptions(describeInstanceBillRequest, runtime)
+		result, err := client.DescribeInstanceBillWithOptions(describeInstanceBillRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -70,7 +68,7 @@ func DescribeInstanceBill(keyID, keySecret string) (*types.CreateInstanceRespons
 func RefundInstance(keyID, keySecret, instanceID string) (int64, error) {
 	out := int64(0)
 
-	client, err := newBssopen(keyID, keySecret)
+	client, err := newBssopenClient(keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -82,7 +80,6 @@ func RefundInstance(keyID, keySecret, instanceID string) (int64, error) {
 		ProductType:        tea.String(""),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -90,7 +87,7 @@ func RefundInstance(keyID, keySecret, instanceID string) (int64, error) {
 			}
 		}()
 
-		result, err := client.RefundInstanceWithOptions(refundInstanceRequest, runtime)
+		result, err := client.RefundInstanceWithOptions(refundInstanceRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -115,7 +112,7 @@ func RefundInstance(keyID, keySecret, instanceID string) (int64, error) {
 func InquiryPriceRefundInstance(keyID, keySecret, instanceID string) (float64, error) {
 	out := 0.0
 
-	client, err := newBssopen(keyID, keySecret)
+	client, err := newBssopenClient(keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -126,7 +123,6 @@ func InquiryPriceRefundInstance(keyID, keySecret, instanceID string) (float64, e
 		ProductType: tea.String(""),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -134,7 +130,7 @@ func InquiryPriceRefundInstance(keyID, keySecret, instanceID string) (float64, e
 			}
 		}()
 
-		result, err := client.InquiryPriceRefundInstanceWithOptions(request, runtime)
+		result, err := client.InquiryPriceRefundInstanceWithOptions(request, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -158,7 +154,7 @@ func InquiryPriceRefundInstance(keyID, keySecret, instanceID string) (float64, e
 func QueryProductList(keyID, keySecret string) (*types.CreateInstanceResponse, error) {
 	var out *types.CreateInstanceResponse
 
-	client, err := newBssopen(keyID, keySecret)
+	client, err := newBssopenClient(keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -167,7 +163,6 @@ func QueryProductList(keyID, keySecret string) (*types.CreateInstanceResponse, e
 		PageNum: tea.Int32(1),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -175,7 +170,7 @@ func QueryProductList(keyID, keySecret string) (*types.CreateInstanceResponse, e
 			}
 		}()
 
-		result, err := client.QueryProductListWithOptions(describeInstanceBillRequest, runtime)
+		result, err := client.QueryProductListWithOptions(describeInstanceBillRequest, getRunTime())
 		if err != nil {
 			return err
 		}

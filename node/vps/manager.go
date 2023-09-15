@@ -6,6 +6,7 @@ import (
 
 	"github.com/LMF709268224/titan-vps/api"
 	"github.com/LMF709268224/titan-vps/api/terrors"
+	"github.com/alibabacloud-go/tea/tea"
 
 	"github.com/LMF709268224/titan-vps/api/types"
 	"github.com/LMF709268224/titan-vps/lib/aliyun"
@@ -71,10 +72,16 @@ func (m *Manager) CreateAliYunInstance(infoID int64, vpsInfo *types.CreateInstan
 	} else {
 		securityGroupID = securityGroups[0]
 	}
-
 	vpsInfo.SecurityGroupID = securityGroupID
 
-	result, sErr := aliyun.RunInstances(accessKeyID, accessKeySecret, vpsInfo, m.cfg.DryRun)
+	ltID, sErr := m.getLaunchTemplate(regionID)
+	log.Infof("launchTemplateID : %s", ltID)
+	if sErr != nil {
+		log.Errorf("getLaunchTemplate err: %v", sErr)
+		return nil, xerrors.New(*sErr.Message)
+	}
+
+	result, sErr := aliyun.RunInstances(accessKeyID, accessKeySecret, ltID, vpsInfo, m.cfg.DryRun)
 	if sErr != nil {
 		log.Errorf("CreateInstance err: %v", sErr)
 		return nil, xerrors.New(*sErr.Message)
@@ -551,4 +558,36 @@ func (m *Manager) ModifyInstanceRenew(renewReq *types.SetRenewOrderReq) error {
 	}
 
 	return nil
+}
+
+func (m *Manager) getLaunchTemplate(regionID string) (string, *tea.SDKError) {
+	accessKeyID := m.cfg.AliyunAccessKeyID
+	accessKeySecret := m.cfg.AliyunAccessKeySecret
+
+	launchTemplateID, err := aliyun.DescribeLaunchTemplates(accessKeyID, accessKeySecret, regionID)
+	if err != nil {
+		log.Errorf("DescribeLaunchTemplates err: %s", *err.Message)
+		return "", err
+	}
+
+	if launchTemplateID != "" {
+		return launchTemplateID, nil
+	}
+
+	vpcID, err := aliyun.DescribeVpcs(accessKeyID, accessKeySecret, regionID)
+	if err != nil {
+		log.Errorf("DescribeVpcs err: %s", *err.Message)
+		return "", err
+	}
+
+	if vpcID == "" {
+		vpcID, err = aliyun.CreateVpc(accessKeyID, accessKeySecret, regionID)
+		if err != nil {
+			log.Errorf("CreateVpc err: %s", *err.Message)
+			return "", err
+		}
+	}
+	log.Infof("vpcID : %s", vpcID)
+
+	return aliyun.CreateLaunchTemplate(accessKeyID, accessKeySecret, regionID, vpcID)
 }

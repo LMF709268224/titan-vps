@@ -20,11 +20,15 @@ const (
 	defaultRegionID = "cn-hangzhou"
 )
 
-var VpsClient sync.Map
+var EcsClient sync.Map
+
+func getRunTime() *util.RuntimeOptions {
+	return &util.RuntimeOptions{ConnectTimeout: tea.Int(int(5 * time.Second))}
+}
 
 // ClientInit /**
-func newClient(regionID, keyID, keySecret string) (*ecs20140526.Client, *tea.SDKError) {
-	if v, ok := VpsClient.Load(regionID); ok {
+func newEcsClient(regionID, keyID, keySecret string) (*ecs20140526.Client, *tea.SDKError) {
+	if v, ok := EcsClient.Load(regionID); ok {
 		c := v.(*ecs20140526.Client)
 		return c, nil
 	}
@@ -45,7 +49,7 @@ func newClient(regionID, keyID, keySecret string) (*ecs20140526.Client, *tea.SDK
 		return nil, errors
 	}
 
-	VpsClient.Store(regionID, client)
+	EcsClient.Store(regionID, client)
 	return client, nil
 }
 
@@ -53,7 +57,7 @@ func newClient(regionID, keyID, keySecret string) (*ecs20140526.Client, *tea.SDK
 func CreateInstance(keyID, keySecret string, instanceReq *types.CreateInstanceReq, dryRun bool) (*types.CreateInstanceResponse, *tea.SDKError) {
 	var out *types.CreateInstanceResponse
 
-	client, err := newClient(instanceReq.RegionId, keyID, keySecret)
+	client, err := newEcsClient(instanceReq.RegionId, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -88,7 +92,7 @@ func CreateInstance(keyID, keySecret string, instanceReq *types.CreateInstanceRe
 			createInstanceRequest.DataDisk = append(createInstanceRequest.DataDisk, DataDiskInfo)
 		}
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -96,7 +100,7 @@ func CreateInstance(keyID, keySecret string, instanceReq *types.CreateInstanceRe
 			}
 		}()
 
-		result, err := client.CreateInstanceWithOptions(createInstanceRequest, runtime)
+		result, err := client.CreateInstanceWithOptions(createInstanceRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -125,15 +129,14 @@ func CreateInstance(keyID, keySecret string, instanceReq *types.CreateInstanceRe
 }
 
 // RunInstances run aliyun instances
-func RunInstances(keyID, keySecret string, instanceReq *types.CreateInstanceReq, dryRun bool) (*ecs20140526.RunInstancesResponse, *tea.SDKError) {
+func RunInstances(keyID, keySecret, launchTemplateID string, instanceReq *types.CreateInstanceReq, dryRun bool) (*ecs20140526.RunInstancesResponse, *tea.SDKError) {
 	var out *ecs20140526.RunInstancesResponse
 
-	client, err := newClient(instanceReq.RegionId, keyID, keySecret)
+	client, err := newEcsClient(instanceReq.RegionId, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
 
-	fmt.Println("RunInstances instanceReq.SecurityGroupID : ", instanceReq.SecurityGroupID)
 	createInstanceRequest := &ecs20140526.RunInstancesRequest{
 		RegionId:           tea.String(instanceReq.RegionId),
 		InstanceType:       tea.String(instanceReq.InstanceType),
@@ -144,6 +147,7 @@ func RunInstances(keyID, keySecret string, instanceReq *types.CreateInstanceReq,
 		PeriodUnit:         tea.String(instanceReq.PeriodUnit),
 		InternetChargeType: tea.String(instanceReq.InternetChargeType),
 		Period:             tea.Int32(instanceReq.Period),
+		LaunchTemplateId:   tea.String(launchTemplateID),
 		// Password:                tea.String(password),
 		InternetMaxBandwidthOut: tea.Int32(10),
 		InternetMaxBandwidthIn:  tea.Int32(10),
@@ -165,7 +169,6 @@ func RunInstances(keyID, keySecret string, instanceReq *types.CreateInstanceReq,
 		}
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -173,7 +176,7 @@ func RunInstances(keyID, keySecret string, instanceReq *types.CreateInstanceReq,
 			}
 		}()
 
-		result, err := client.RunInstancesWithOptions(createInstanceRequest, runtime)
+		result, err := client.RunInstancesWithOptions(createInstanceRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -197,7 +200,7 @@ func RunInstances(keyID, keySecret string, instanceReq *types.CreateInstanceReq,
 
 // StartInstance start an instance
 func StartInstance(regionID, keyID, keySecret, instanceID string) *tea.SDKError {
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return err
 	}
@@ -207,7 +210,6 @@ func StartInstance(regionID, keyID, keySecret, instanceID string) *tea.SDKError 
 		InstanceId: tea.StringSlice([]string{instanceID}),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -215,7 +217,7 @@ func StartInstance(regionID, keyID, keySecret, instanceID string) *tea.SDKError 
 			}
 		}()
 
-		_, err := client.StartInstancesWithOptions(startInstancesRequest, runtime)
+		_, err := client.StartInstancesWithOptions(startInstancesRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -239,7 +241,7 @@ func StartInstance(regionID, keyID, keySecret, instanceID string) *tea.SDKError 
 func DescribeSecurityGroups(regionID, keyID, keySecret string) ([]string, *tea.SDKError) {
 	var out []string
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -249,7 +251,6 @@ func DescribeSecurityGroups(regionID, keyID, keySecret string) ([]string, *tea.S
 		// NetworkType: tea.String("classic"),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -257,7 +258,7 @@ func DescribeSecurityGroups(regionID, keyID, keySecret string) ([]string, *tea.S
 			}
 		}()
 
-		response, err := client.DescribeSecurityGroupsWithOptions(describeSecurityGroupsRequest, runtime)
+		response, err := client.DescribeSecurityGroupsWithOptions(describeSecurityGroupsRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -286,7 +287,7 @@ func DescribeSecurityGroups(regionID, keyID, keySecret string) ([]string, *tea.S
 func DescribeInstanceAttribute(regionID, keyID, keySecret, instanceID string) (*ecs20140526.DescribeInstanceAttributeResponse, *tea.SDKError) {
 	var out *ecs20140526.DescribeInstanceAttributeResponse
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -295,7 +296,6 @@ func DescribeInstanceAttribute(regionID, keyID, keySecret, instanceID string) (*
 		InstanceId: tea.String(instanceID),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -303,7 +303,7 @@ func DescribeInstanceAttribute(regionID, keyID, keySecret, instanceID string) (*
 			}
 		}()
 
-		result, err := client.DescribeInstanceAttributeWithOptions(describeInstanceAttributeRequest, runtime)
+		result, err := client.DescribeInstanceAttributeWithOptions(describeInstanceAttributeRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -329,7 +329,7 @@ func DescribeInstanceAttribute(regionID, keyID, keySecret, instanceID string) (*
 func AllocatePublicIPAddress(regionID, keyID, keySecret, instanceID string) (string, *tea.SDKError) {
 	var out string
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -338,7 +338,6 @@ func AllocatePublicIPAddress(regionID, keyID, keySecret, instanceID string) (str
 		InstanceId: tea.String(instanceID),
 	}
 
-	runtime := &util.RuntimeOptions{}
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
@@ -346,7 +345,7 @@ func AllocatePublicIPAddress(regionID, keyID, keySecret, instanceID string) (str
 			}
 		}()
 
-		result, err := client.AllocatePublicIpAddressWithOptions(allocatePublicIPAddressRequest, runtime)
+		result, err := client.AllocatePublicIpAddressWithOptions(allocatePublicIPAddressRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -372,7 +371,7 @@ func AllocatePublicIPAddress(regionID, keyID, keySecret, instanceID string) (str
 func DescribePrice(keyID, keySecret string, priceReq *types.DescribePriceReq) (*types.DescribePriceResponse, *tea.SDKError) {
 	var out *types.DescribePriceResponse
 
-	client, err := newClient(priceReq.RegionId, keyID, keySecret)
+	client, err := newEcsClient(priceReq.RegionId, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -403,7 +402,6 @@ func DescribePrice(keyID, keySecret string, priceReq *types.DescribePriceReq) (*
 			describePriceRequest.DataDisk = append(describePriceRequest.DataDisk, DataDiskInfo)
 		}
 	}
-	runtime := &util.RuntimeOptions{ConnectTimeout: tea.Int(int(5 * time.Second))}
 
 	tryErr := func() (_e error) {
 		defer func() {
@@ -411,7 +409,7 @@ func DescribePrice(keyID, keySecret string, priceReq *types.DescribePriceReq) (*
 				_e = r
 			}
 		}()
-		result, err := client.DescribePriceWithOptions(describePriceRequest, runtime)
+		result, err := client.DescribePriceWithOptions(describePriceRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -438,7 +436,7 @@ func DescribePrice(keyID, keySecret string, priceReq *types.DescribePriceReq) (*
 
 // AuthorizeSecurityGroup authorize security group
 func AuthorizeSecurityGroup(regionID, keyID, keySecret, securityGroupID string) *tea.SDKError {
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return err
 	}
@@ -455,7 +453,6 @@ func AuthorizeSecurityGroup(regionID, keyID, keySecret, securityGroupID string) 
 			},
 		},
 	}
-	runtime := &util.RuntimeOptions{}
 
 	tryErr := func() (_e error) {
 		defer func() {
@@ -463,7 +460,7 @@ func AuthorizeSecurityGroup(regionID, keyID, keySecret, securityGroupID string) 
 				_e = r
 			}
 		}()
-		_, err := client.AuthorizeSecurityGroupWithOptions(authorizeSecurityGroupRequest, runtime)
+		_, err := client.AuthorizeSecurityGroupWithOptions(authorizeSecurityGroupRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -484,14 +481,13 @@ func AuthorizeSecurityGroup(regionID, keyID, keySecret, securityGroupID string) 
 
 // DescribeRegions describe regions
 func DescribeRegions(keyID, keySecret string) (*ecs20140526.DescribeRegionsResponse, *tea.SDKError) {
-	client, err := newClient(defaultRegionID, keyID, keySecret)
+	client, err := newEcsClient(defaultRegionID, keyID, keySecret)
 	if err != nil {
 		return nil, err
 	}
 
 	var result *ecs20140526.DescribeRegionsResponse
 	describeRegionsRequest := &ecs20140526.DescribeRegionsRequest{}
-	runtime := &util.RuntimeOptions{}
 
 	tryErr := func() (_e error) {
 		defer func() {
@@ -500,7 +496,7 @@ func DescribeRegions(keyID, keySecret string) (*ecs20140526.DescribeRegionsRespo
 			}
 		}()
 
-		result, _e = client.DescribeRegionsWithOptions(describeRegionsRequest, runtime)
+		result, _e = client.DescribeRegionsWithOptions(describeRegionsRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -521,7 +517,7 @@ func DescribeRegions(keyID, keySecret string) (*ecs20140526.DescribeRegionsRespo
 // DescribeRecommendInstanceType Describe Instance Type
 func DescribeRecommendInstanceType(keyID, keySecret string, instanceTypeReq *types.DescribeRecommendInstanceTypeReq) (*ecs20140526.DescribeRecommendInstanceTypeResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeRecommendInstanceTypeResponse
-	client, err := newClient(instanceTypeReq.RegionId, keyID, keySecret)
+	client, err := newEcsClient(instanceTypeReq.RegionId, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -537,14 +533,14 @@ func DescribeRecommendInstanceType(keyID, keySecret string, instanceTypeReq *typ
 	if instanceTypeReq.Memory > 0 {
 		describeRecommendInstanceTypeRequest.Memory = tea.Float32(instanceTypeReq.Memory)
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeRecommendInstanceTypeWithOptions(describeRecommendInstanceTypeRequest, runtime)
+		result, _e = client.DescribeRecommendInstanceTypeWithOptions(describeRecommendInstanceTypeRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -565,7 +561,7 @@ func DescribeRecommendInstanceType(keyID, keySecret string, instanceTypeReq *typ
 
 func DescribeInstanceTypes(keyID, keySecret string, instanceType *types.DescribeInstanceTypeReq) (*ecs20140526.DescribeInstanceTypesResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeInstanceTypesResponse
-	client, err := newClient(instanceType.RegionId, keyID, keySecret)
+	client, err := newEcsClient(instanceType.RegionId, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -590,14 +586,14 @@ func DescribeInstanceTypes(keyID, keySecret string, instanceType *types.Describe
 	if instanceType.NextToken != "" {
 		describeInstanceTypesRequest.NextToken = tea.String(instanceType.NextToken)
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeInstanceTypesWithOptions(describeInstanceTypesRequest, runtime)
+		result, _e = client.DescribeInstanceTypesWithOptions(describeInstanceTypesRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -620,7 +616,7 @@ func DescribeInstanceTypes(keyID, keySecret string, instanceType *types.Describe
 func CreateSecurityGroup(regionID, keyID, keySecret string) (string, *tea.SDKError) {
 	var out string
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -628,14 +624,14 @@ func CreateSecurityGroup(regionID, keyID, keySecret string) (string, *tea.SDKErr
 	createSecurityGroupRequest := &ecs20140526.CreateSecurityGroupRequest{
 		RegionId: tea.String(regionID),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, err := client.CreateSecurityGroupWithOptions(createSecurityGroupRequest, runtime)
+		result, err := client.CreateSecurityGroupWithOptions(createSecurityGroupRequest, getRunTime())
 		if err != nil {
 			return err
 		}
@@ -660,7 +656,7 @@ func CreateSecurityGroup(regionID, keyID, keySecret string) (string, *tea.SDKErr
 func DescribeImages(regionID, keyID, keySecret, instanceType string) (*ecs20140526.DescribeImagesResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeImagesResponse
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -671,14 +667,14 @@ func DescribeImages(regionID, keyID, keySecret, instanceType string) (*ecs201405
 	if instanceType != "" {
 		createSecurityGroupRequest.InstanceType = tea.String(instanceType)
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeImagesWithOptions(createSecurityGroupRequest, runtime)
+		result, _e = client.DescribeImagesWithOptions(createSecurityGroupRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -701,7 +697,7 @@ func DescribeImages(regionID, keyID, keySecret, instanceType string) (*ecs201405
 func DescribeInstanceStatus(regionID, keyID, keySecret string, InstanceId []string) (*ecs20140526.DescribeInstanceStatusResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeInstanceStatusResponse
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -710,14 +706,14 @@ func DescribeInstanceStatus(regionID, keyID, keySecret string, InstanceId []stri
 		RegionId:   tea.String(regionID),
 		InstanceId: tea.StringSlice(InstanceId),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeInstanceStatusWithOptions(createSecurityGroupRequest, runtime)
+		result, _e = client.DescribeInstanceStatusWithOptions(createSecurityGroupRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -740,7 +736,7 @@ func DescribeInstanceStatus(regionID, keyID, keySecret string, InstanceId []stri
 func DescribeInstances(regionID, keyID, keySecret string, InstanceIds []string) (*ecs20140526.DescribeInstancesResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeInstancesResponse
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -753,14 +749,14 @@ func DescribeInstances(regionID, keyID, keySecret string, InstanceIds []string) 
 		RegionId:    tea.String(regionID),
 		InstanceIds: tea.String(instanceIdSting),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeInstancesWithOptions(createSecurityGroupRequest, runtime)
+		result, _e = client.DescribeInstancesWithOptions(createSecurityGroupRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -783,7 +779,7 @@ func DescribeInstances(regionID, keyID, keySecret string, InstanceIds []string) 
 func DescribeAvailableResource(keyID, keySecret string, instanceType *types.DescribeInstanceTypeReq) (*ecs20140526.DescribeAvailableResourceResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeAvailableResourceResponse
 
-	client, err := newClient(instanceType.RegionId, keyID, keySecret)
+	client, err := newEcsClient(instanceType.RegionId, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -797,14 +793,14 @@ func DescribeAvailableResource(keyID, keySecret string, instanceType *types.Desc
 		Cores:               tea.Int32(instanceType.CpuCoreCount),
 		Memory:              tea.Float32(instanceType.MemorySize),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeAvailableResourceWithOptions(describeAvailableResourceRequest, runtime)
+		result, _e = client.DescribeAvailableResourceWithOptions(describeAvailableResourceRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -826,7 +822,7 @@ func DescribeAvailableResource(keyID, keySecret string, instanceType *types.Desc
 func DescribeAvailableResourceForDesk(keyID, keySecret string, desk *types.AvailableResourceReq) (*ecs20140526.DescribeAvailableResourceResponse, *tea.SDKError) {
 	var result *ecs20140526.DescribeAvailableResourceResponse
 
-	client, err := newClient(desk.RegionId, keyID, keySecret)
+	client, err := newEcsClient(desk.RegionId, keyID, keySecret)
 	if err != nil {
 		return result, err
 	}
@@ -838,14 +834,14 @@ func DescribeAvailableResourceForDesk(keyID, keySecret string, desk *types.Avail
 		InstanceType:        tea.String(desk.InstanceType),
 		ResourceType:        tea.String("instance"),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeAvailableResourceWithOptions(describeAvailableResourceRequest, runtime)
+		result, _e = client.DescribeAvailableResourceWithOptions(describeAvailableResourceRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -868,7 +864,7 @@ func DescribeAvailableResourceForDesk(keyID, keySecret string, desk *types.Avail
 func CreateKeyPair(regionID, keyID, keySecret, KeyPairName string) (*types.CreateKeyPairResponse, *tea.SDKError) {
 	var out *types.CreateKeyPairResponse
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -877,14 +873,14 @@ func CreateKeyPair(regionID, keyID, keySecret, KeyPairName string) (*types.Creat
 		RegionId:    tea.String(regionID),
 		KeyPairName: tea.String(KeyPairName),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e := client.CreateKeyPairWithOptions(createKeyPairRequest, runtime)
+		result, _e := client.CreateKeyPairWithOptions(createKeyPairRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -913,7 +909,7 @@ func CreateKeyPair(regionID, keyID, keySecret, KeyPairName string) (*types.Creat
 func AttachKeyPair(regionID, keyID, keySecret, KeyPairName string, instanceIds []string) ([]*types.AttachKeyPairResponse, *tea.SDKError) {
 	var out []*types.AttachKeyPairResponse
 
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return out, err
 	}
@@ -928,14 +924,14 @@ func AttachKeyPair(regionID, keyID, keySecret, KeyPairName string, instanceIds [
 		// InstanceIds should be []string
 		InstanceIds: tea.String(instanceIdSting),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e := client.AttachKeyPairWithOptions(attachKeyPairRequest, runtime)
+		result, _e := client.AttachKeyPairWithOptions(attachKeyPairRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -965,7 +961,7 @@ func AttachKeyPair(regionID, keyID, keySecret, KeyPairName string, instanceIds [
 
 // RebootInstance  Reboot Instance
 func RebootInstance(regionID, keyID, keySecret, instanceId string) *tea.SDKError {
-	client, err := newClient(regionID, keyID, keySecret)
+	client, err := newEcsClient(regionID, keyID, keySecret)
 	if err != nil {
 		return err
 	}
@@ -973,14 +969,14 @@ func RebootInstance(regionID, keyID, keySecret, instanceId string) *tea.SDKError
 	rebootInstanceRequest := &ecs20140526.RebootInstanceRequest{
 		InstanceId: tea.String(instanceId),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		_, _e = client.RebootInstanceWithOptions(rebootInstanceRequest, runtime)
+		_, _e = client.RebootInstanceWithOptions(rebootInstanceRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -1002,7 +998,7 @@ func RebootInstance(regionID, keyID, keySecret, instanceId string) *tea.SDKError
 
 // RenewInstance renew instance
 func RenewInstance(keyID, keySecret string, renewInstanceRequest *types.RenewInstanceRequest) *tea.SDKError {
-	client, err := newClient(renewInstanceRequest.RegionId, keyID, keySecret)
+	client, err := newEcsClient(renewInstanceRequest.RegionId, keyID, keySecret)
 	if err != nil {
 		return err
 	}
@@ -1012,14 +1008,14 @@ func RenewInstance(keyID, keySecret string, renewInstanceRequest *types.RenewIns
 		Period:     tea.Int32(renewInstanceRequest.Period),
 		PeriodUnit: tea.String(renewInstanceRequest.PeriodUnit),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		_, _e = client.RenewInstanceWithOptions(rebootInstanceRequest, runtime)
+		_, _e = client.RenewInstanceWithOptions(rebootInstanceRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -1040,7 +1036,7 @@ func RenewInstance(keyID, keySecret string, renewInstanceRequest *types.RenewIns
 }
 
 func ModifyInstanceAutoRenewAttribute(keyID, keySecret string, renewInstanceRequest *types.SetRenewOrderReq) *tea.SDKError {
-	client, err := newClient(renewInstanceRequest.RegionID, keyID, keySecret)
+	client, err := newEcsClient(renewInstanceRequest.RegionID, keyID, keySecret)
 	if err != nil {
 		return err
 	}
@@ -1060,14 +1056,14 @@ func ModifyInstanceAutoRenewAttribute(keyID, keySecret string, renewInstanceRequ
 	if renewInstanceRequest.PeriodUnit != "" {
 		rebootInstanceRequest.Duration = tea.Int32(renewInstanceRequest.Period)
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		_, _e = client.ModifyInstanceAutoRenewAttributeWithOptions(rebootInstanceRequest, runtime)
+		_, _e = client.ModifyInstanceAutoRenewAttributeWithOptions(rebootInstanceRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -1088,7 +1084,7 @@ func ModifyInstanceAutoRenewAttribute(keyID, keySecret string, renewInstanceRequ
 }
 
 func DescribeInstanceAutoRenewAttribute(keyID, keySecret string, renewInstanceRequest *types.SetRenewOrderReq) (*ecs20140526.DescribeInstanceAutoRenewAttributeResponse, *tea.SDKError) {
-	client, err := newClient(renewInstanceRequest.RegionID, keyID, keySecret)
+	client, err := newEcsClient(renewInstanceRequest.RegionID, keyID, keySecret)
 	if err != nil {
 		return nil, err
 	}
@@ -1097,14 +1093,14 @@ func DescribeInstanceAutoRenewAttribute(keyID, keySecret string, renewInstanceRe
 		InstanceId: tea.String(renewInstanceRequest.InstanceId),
 		RegionId:   tea.String(renewInstanceRequest.RegionID),
 	}
-	runtime := &util.RuntimeOptions{}
+
 	tryErr := func() (_e error) {
 		defer func() {
 			if r := tea.Recover(recover()); r != nil {
 				_e = r
 			}
 		}()
-		result, _e = client.DescribeInstanceAutoRenewAttributeWithOptions(rebootInstanceRequest, runtime)
+		result, _e = client.DescribeInstanceAutoRenewAttributeWithOptions(rebootInstanceRequest, getRunTime())
 		if _e != nil {
 			return _e
 		}
@@ -1122,4 +1118,128 @@ func DescribeInstanceAutoRenewAttribute(keyID, keySecret string, renewInstanceRe
 		return nil, errors
 	}
 	return result, nil
+}
+
+// CreateLaunchTemplate Create Launch Template
+func CreateLaunchTemplate(keyID, keySecret, regionID, vpcID string) (string, *tea.SDKError) {
+	var out string
+	client, err := newEcsClient(regionID, keyID, keySecret)
+	if err != nil {
+		return out, err
+	}
+
+	request := &ecs20140526.CreateLaunchTemplateRequest{
+		RegionId:           tea.String(regionID),
+		VpcId:              tea.String(vpcID),
+		LaunchTemplateName: tea.String(regionID),
+		NetworkType:        tea.String("vpc"),
+	}
+
+	tryErr := func() (_e error) {
+		defer func() {
+			if r := tea.Recover(recover()); r != nil {
+				_e = r
+			}
+		}()
+
+		result, _e := client.CreateLaunchTemplateWithOptions(request, getRunTime())
+		if _e != nil {
+			return _e
+		}
+
+		out = *result.Body.LaunchTemplateId
+
+		return nil
+	}()
+	if tryErr != nil {
+		errors := &tea.SDKError{}
+		if _t, ok := tryErr.(*tea.SDKError); ok {
+			errors = _t
+		} else {
+			errors.Message = tea.String(tryErr.Error())
+		}
+		return out, errors
+	}
+	return out, nil
+}
+
+// DescribeLaunchTemplates Describe Launch Templates
+func DescribeLaunchTemplates(keyID, keySecret, regionID string) (string, *tea.SDKError) {
+	var out string
+	client, err := newEcsClient(regionID, keyID, keySecret)
+	if err != nil {
+		return out, err
+	}
+
+	request := &ecs20140526.DescribeLaunchTemplatesRequest{
+		RegionId: tea.String(regionID),
+	}
+
+	tryErr := func() (_e error) {
+		defer func() {
+			if r := tea.Recover(recover()); r != nil {
+				_e = r
+			}
+		}()
+
+		result, _e := client.DescribeLaunchTemplatesWithOptions(request, getRunTime())
+		if _e != nil {
+			return _e
+		}
+
+		list := result.Body.LaunchTemplateSets.LaunchTemplateSet
+		if len(list) > 0 {
+			out = *list[0].LaunchTemplateId
+		}
+
+		return nil
+	}()
+	if tryErr != nil {
+		errors := &tea.SDKError{}
+		if _t, ok := tryErr.(*tea.SDKError); ok {
+			errors = _t
+		} else {
+			errors.Message = tea.String(tryErr.Error())
+		}
+		return out, errors
+	}
+	return out, nil
+}
+
+// DeleteLaunchTemplate delete Launch Templates
+func DeleteLaunchTemplate(keyID, keySecret, regionID, launchTemplateID string) *tea.SDKError {
+	client, err := newEcsClient(regionID, keyID, keySecret)
+	if err != nil {
+		return err
+	}
+
+	request := &ecs20140526.DeleteLaunchTemplateRequest{
+		RegionId:         tea.String(regionID),
+		LaunchTemplateId: tea.String(launchTemplateID),
+	}
+
+	tryErr := func() (_e error) {
+		defer func() {
+			if r := tea.Recover(recover()); r != nil {
+				_e = r
+			}
+		}()
+
+		_, _e = client.DeleteLaunchTemplateWithOptions(request, getRunTime())
+		if _e != nil {
+			return _e
+		}
+
+		return nil
+	}()
+	if tryErr != nil {
+		errors := &tea.SDKError{}
+		if _t, ok := tryErr.(*tea.SDKError); ok {
+			errors = _t
+		} else {
+			errors.Message = tea.String(tryErr.Error())
+		}
+		return errors
+	}
+	return nil
 }
