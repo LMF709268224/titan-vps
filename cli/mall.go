@@ -39,10 +39,10 @@ var vpsCmds = &cli.Command{
 		describePriceCmd,
 		createKeyPairCmd,
 		getDeskCmd,
-		UpdateDefaultInfoCmd,
-		GetInstanceDefaultCmd,
-		GetInstanceCpuCmd,
-		GetInstanceMemoryCmd,
+		updateDefaultInfoCmd,
+		getInstanceDefaultCmd,
+		getInstanceCpuCmd,
+		getInstanceMemoryCmd,
 	},
 }
 
@@ -96,7 +96,7 @@ var describeRegionsCmd = &cli.Command{
 
 var describeImageCmd = &cli.Command{
 	Name:  "dim",
-	Usage: "describe regions",
+	Usage: "describe image",
 
 	Before: func(cctx *cli.Context) error {
 		return nil
@@ -123,7 +123,7 @@ var describeImageCmd = &cli.Command{
 
 var createKeyPairCmd = &cli.Command{
 	Name:  "ckp",
-	Usage: "describe regions",
+	Usage: "create key pair",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "instanceID",
@@ -156,7 +156,7 @@ var createKeyPairCmd = &cli.Command{
 
 var getDeskCmd = &cli.Command{
 	Name:  "gdc",
-	Usage: "get  desk indo",
+	Usage: "get desk info",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "it",
@@ -206,9 +206,9 @@ var getDeskCmd = &cli.Command{
 	},
 }
 
-var UpdateDefaultInfoCmd = &cli.Command{
+var updateDefaultInfoCmd = &cli.Command{
 	Name:  "tdc",
-	Usage: "UpdateDefaultInfo",
+	Usage: "update default info of instance",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "r",
@@ -237,9 +237,9 @@ var UpdateDefaultInfoCmd = &cli.Command{
 	},
 }
 
-var GetInstanceDefaultCmd = &cli.Command{
+var getInstanceDefaultCmd = &cli.Command{
 	Name:  "gidc",
-	Usage: "Get InstanceDefault indo",
+	Usage: "get instance default info",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "c",
@@ -296,9 +296,9 @@ var GetInstanceDefaultCmd = &cli.Command{
 	},
 }
 
-var GetInstanceCpuCmd = &cli.Command{
+var getInstanceCpuCmd = &cli.Command{
 	Name:  "gicc",
-	Usage: "get  desk indo",
+	Usage: "get instance cpu info",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "m",
@@ -337,9 +337,9 @@ var GetInstanceCpuCmd = &cli.Command{
 	},
 }
 
-var GetInstanceMemoryCmd = &cli.Command{
+var getInstanceMemoryCmd = &cli.Command{
 	Name:  "gimc",
-	Usage: "get  desk indo",
+	Usage: "get instance memory info",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "c",
