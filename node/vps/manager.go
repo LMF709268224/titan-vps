@@ -50,6 +50,7 @@ func NewManager(sdb *db.SQLDB, getCfg dtypes.GetMallConfigFunc) (*Manager, error
 func (m *Manager) CreateAliYunInstance(infoID int64, vpsInfo *types.CreateInstanceReq) (*types.CreateInstanceResponse, error) {
 	accessKeyID := m.cfg.AliyunAccessKeyID
 	accessKeySecret := m.cfg.AliyunAccessKeySecret
+	dryRun := m.cfg.DryRun
 
 	priceUnit := vpsInfo.PeriodUnit
 	period := vpsInfo.Period
@@ -70,9 +71,7 @@ func (m *Manager) CreateAliYunInstance(infoID int64, vpsInfo *types.CreateInstan
 		}
 	}
 
-	// log.Debugln("securityGroupID:", securityGroupID)
-
-	result, sErr := aliyun.CreateInstance(accessKeyID, accessKeySecret, vpsInfo, m.cfg.DryRun)
+	result, sErr := aliyun.CreateInstance(accessKeyID, accessKeySecret, vpsInfo, dryRun)
 	if sErr != nil {
 		log.Errorf("CreateInstance err: %v", sErr)
 		return nil, xerrors.New(*sErr.Message)
